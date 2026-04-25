@@ -191,12 +191,31 @@ function renderCategoryList() {
 // ---- Speech UI ----
 function initSpeechUI() {
   const btn  = document.getElementById('btn-voice');
+
+  // モーダルを開く共通処理（手動停止・iOS自動終了の両方から呼ばれる）
+  function showVoiceModal(raw) {
+    btn.classList.remove('listening');
+    const coords = raw ? parseCoordOnly(raw) : null;
+    document.getElementById('voice-raw').textContent = raw
+      ? (coords ? `「${raw}」` : `「${raw}」（座標を認識できませんでした）`)
+      : '（音声が認識されませんでした）';
+    document.getElementById('voice-name').value  = '';
+    document.getElementById('voice-x').value     = coords?.x ?? '';
+    document.getElementById('voice-y').value     = coords?.y ?? 64;
+    document.getElementById('voice-z').value     = coords?.z ?? '';
+    document.getElementById('voice-category').innerHTML = categoryOptions();
+    openModal('modal-voice');
+    setTimeout(() => document.getElementById('voice-name').focus(), 50);
+  }
+
   const supported = initSpeech(
     // onInterim: 認識中のテキストをリアルタイム表示
     (text) => {
       if (text) document.getElementById('voice-raw').textContent = `🎤 ${text}`;
     },
-    // onError: 認識エラー時にボタンをリセット
+    // onDone: iOS自動終了 or エラー後テキストあり → モーダルへ
+    showVoiceModal,
+    // onError: テキストなしエラー → ボタンリセットのみ
     () => { btn.classList.remove('listening'); }
   );
   if (!supported) {
@@ -207,20 +226,9 @@ function initSpeechUI() {
   }
   btn.onclick = () => {
     if (btn.classList.contains('listening')) {
-      // もう一度押したら停止 → その時点までの認識テキストから座標をパース
-      const raw = stopListening();
-      btn.classList.remove('listening');
-      if (!raw) return;
-      const coords = parseCoordOnly(raw);
-      document.getElementById('voice-raw').textContent = coords
-        ? `「${raw}」`
-        : `「${raw}」（座標を認識できませんでした）`;
-      document.getElementById('voice-name').value  = '';
-      document.getElementById('voice-x').value     = coords?.x ?? '';
-      document.getElementById('voice-y').value     = coords?.y ?? 64;
-      document.getElementById('voice-z').value     = coords?.z ?? '';
-      document.getElementById('voice-category').innerHTML = categoryOptions();
-      openModal('modal-voice');
+      // 手動停止: stopListening() → recognition.stop() → onend → onDone(showVoiceModal)
+      // iOS は stop() 後に onresult(final) が来るため、onend まで待って確定テキストを使う
+      stopListening();
     } else {
       btn.classList.add('listening');
       document.getElementById('voice-raw').textContent = '🎤 座標を話してください…';
@@ -318,7 +326,7 @@ function initSearch() {
   // populate filter dropdown
   const cats = getCategories();
   filterEl.innerHTML = '<option value="">すべて</option>' +
-    cats.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+    cats.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.icon)} ${escapeHtml(c.name)}</option>`).join('');
 }
 
 // ---- Modal close buttons ----
