@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>MC Waypoints — マインクラフト座標管理</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ── -->
+  <header id="header">
+    <button id="btn-sidebar-toggle">☰</button>
+    <h1>⛏️ MC Waypoints <span class="header-subtitle">マインクラフト座標マップ</span></h1>
+  </header>
+
+  <!-- ── Body ── -->
+  <div id="body">
+
+    <!-- ── Sidebar ── -->
+    <aside id="sidebar">
+      <div class="sidebar-inner">
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="waypoints">📍 地点</button>
+          <button class="tab-btn"        data-tab="categories">🏷️ カテゴリ</button>
+          <button class="tab-btn"        data-tab="settings">⚙️ 設定</button>
+        </div>
+
+        <!-- Waypoints tab -->
+        <div class="tab-pane active" id="tab-waypoints">
+          <div class="panel-toolbar">
+            <input type="text" id="search-input" placeholder="名前・メモで検索…">
+            <select id="filter-category"><option value="">すべて</option></select>
+          </div>
+          <div id="waypoint-list"></div>
+          <div class="add-btn-row">
+            <button class="btn btn-primary btn-full" id="btn-add-waypoint">＋ 地点を追加</button>
+          </div>
+        </div>
+
+        <!-- Categories tab -->
+        <div class="tab-pane" id="tab-categories">
+          <div id="category-list"></div>
+          <div class="add-btn-row">
+            <button class="btn btn-secondary btn-full" id="btn-add-category">＋ カテゴリを追加</button>
+          </div>
+        </div>
+
+        <!-- Settings tab -->
+        <div class="tab-pane" id="tab-settings">
+          <div class="settings-section">
+            <h3>表示</h3>
+            <div class="setting-row">
+              <span>グリッド表示</span>
+              <label class="toggle"><input type="checkbox" id="toggle-grid"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="setting-row">
+              <span>チャンク表示</span>
+              <label class="toggle"><input type="checkbox" id="toggle-chunks"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="setting-row">
+              <span>ラベル表示</span>
+              <label class="toggle"><input type="checkbox" id="toggle-labels"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="setting-row">
+              <span>ライトモード</span>
+              <label class="toggle"><input type="checkbox" id="toggle-theme"><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+          <div class="settings-section" style="margin-top:16px">
+            <h3>データ</h3>
+          </div>
+          <div class="data-btns">
+            <button class="btn btn-secondary btn-full" id="btn-export">📤 エクスポート</button>
+            <button class="btn btn-secondary btn-full" id="btn-import">📥 インポート（新規マップ）</button>
+            <input type="file" id="file-import" accept=".json" style="display:none">
+          </div>
+          <div class="settings-section" style="margin-top:16px">
+            <h3>マップ切り替え</h3>
+          </div>
+          <div id="profile-list-area"></div>
+          <div class="data-btns">
+            <button class="btn btn-secondary btn-full" id="btn-add-profile">＋ 新しいマップを作成</button>
+            <button class="btn btn-danger   btn-full" id="btn-reset-profile">🗑️ 現在のマップをリセット</button>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ── Map ── -->
+    <main id="map-area">
+      <canvas id="map-canvas"></canvas>
+
+      <!-- Map controls -->
+      <div id="map-controls">
+        <button class="map-btn" id="btn-rotate">🔄 回転</button>
+        <button class="map-btn" id="btn-reset-view">⌂ リセット</button>
+      </div>
+
+      <!-- Center coordinate display -->
+      <div id="center-display">中心座標: <span id="center-coords">X: 0  Z: 0</span></div>
+
+      <!-- Voice input button -->
+      <button id="btn-voice" title="音声で地点を登録">🎤</button>
+    </main>
+
+  <!-- スクリム: ナロー画面でサイドバーを開いた時の背景幕 -->
+  <div id="sidebar-scrim"></div>
+  </div><!-- /body -->
+</div><!-- /app -->
+
+<!-- ── Toast container ── -->
+<div id="toast-container"></div>
+
+<!-- ── Modal: Waypoint ── -->
+<div class="modal-overlay" id="modal-waypoint">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>地点を追加</h2>
+      <button class="modal-close">✕</button>
+    </div>
+    <form>
+      <div class="form-group">
+        <label>名前</label>
+        <input type="text" name="name" placeholder="例: ダイヤモンド採掘場" required autocomplete="off">
+      </div>
+      <div class="coord-row">
+        <div class="form-group">
+          <label>X座標</label>
+          <input type="number" name="x" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Y座標</label>
+          <input type="number" name="y" placeholder="64" value="64">
+        </div>
+        <div class="form-group">
+          <label>Z座標</label>
+          <input type="number" name="z" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>カテゴリ</label>
+        <select name="category"></select>
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea name="note" placeholder="任意のメモ…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger btn-delete" style="display:none">削除</button>
+        <button type="button" class="btn btn-secondary modal-cancel">キャンセル</button>
+        <button type="submit"  class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: Category ── -->
+<div class="modal-overlay" id="modal-category">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>カテゴリを追加</h2>
+      <button class="modal-close">✕</button>
+    </div>
+    <form>
+      <div class="form-group">
+        <label>カテゴリ名</label>
+        <input type="text" name="catName" placeholder="例: 洞窟探索" required autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>色</label>
+        <input type="color" name="catColor" value="#7BC67E" style="height:40px;cursor:pointer">
+      </div>
+      <div class="form-group">
+        <label>アイコン (絵文字)</label>
+        <input type="text" name="catIcon" placeholder="📍" maxlength="4" style="font-size:20px;">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger btn-delete" style="display:none">削除</button>
+        <button type="button" class="btn btn-secondary modal-cancel">キャンセル</button>
+        <button type="submit"  class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: Voice ── -->
+<div class="modal-overlay" id="modal-voice">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🎤 音声から地点を登録</h2>
+      <button class="modal-close">✕</button>
+    </div>
+    <form id="form-voice">
+      <div class="voice-raw" id="voice-raw">認識テキスト</div>
+      <div class="form-group">
+        <label>名前</label>
+        <input type="text" name="voice-name" id="voice-name" required autocomplete="off">
+      </div>
+      <div class="coord-row">
+        <div class="form-group">
+          <label>X座標</label>
+          <input type="number" name="voice-x" id="voice-x" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Y座標</label>
+          <input type="number" name="voice-y" id="voice-y" placeholder="64" value="64">
+        </div>
+        <div class="form-group">
+          <label>Z座標</label>
+          <input type="number" name="voice-z" id="voice-z" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>カテゴリ</label>
+        <select name="voice-category" id="voice-category"></select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary modal-cancel">キャンセル</button>
+        <button type="submit"  class="btn btn-primary">登録</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: Profile (マップ名編集) ── -->
+<div class="modal-overlay" id="modal-profile">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>マップ名を編集</h2>
+      <button class="modal-close">✕</button>
+    </div>
+    <form id="form-profile">
+      <div class="form-group">
+        <label>マップ名</label>
+        <input type="text" id="profile-name-input" placeholder="例: サバイバルワールド" required autocomplete="off">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger  btn-delete-profile" style="display:none">このマップを削除</button>
+        <button type="button" class="btn btn-secondary modal-cancel">キャンセル</button>
+        <button type="submit"  class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
